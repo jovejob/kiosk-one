@@ -21,10 +21,10 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_APP_ID
 };
 
+
 const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
 
-// Helper to check if URL is a video
 const isVideo = (url) => url.match(/\.(mp4|webm|ogg|mov)/i);
 
 function App() {
@@ -33,72 +33,106 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState(""); 
   
-  // STATE 1: Muted (Default TRUE)
   const [isMuted, setIsMuted] = useState(true);
-  
-  // STATE 2: Fullscreen (Default FALSE)
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isUiVisible, setIsUiVisible] = useState(true);
+  
+  // Store the current Kiosk ID (folder name)
+  const [kioskId, setKioskId] = useState(null); 
 
   const videoRefs = useRef([]);
 
-  // --- 1. FETCH CONTENT ---
-  const fetchContent = async () => {
-    if(mediaItems.length === 0) setLoading(true);
-    const listRef = ref(storage, "kiosk-one/");
+  // --- 1. DETECT KIOSK ID ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id") || "common";
+    setKioskId(id);
+  }, []);
+
+  // --- 2. FETCH CONTENT ---
+  const fetchContent = async (isBackgroundRefresh = false) => {
+    if (!kioskId) return;
+
+    // Only show loading spinner on the very first load
+    if(!isBackgroundRefresh && mediaItems.length === 0) setLoading(true);
+    
+    const folderPath = `images/${kioskId}/`;
+    const listRef = ref(storage, folderPath);
+
     try {
       const response = await listAll(listRef);
       const urls = await Promise.all(
         response.items.map((item) => getDownloadURL(item))
       );
-      setMediaItems(urls);
+      
+      // Only update state if content actually changed
+      setMediaItems(prevItems => {
+        if (prevItems.length !== urls.length) return urls;
+        const isDifferent = prevItems.some((url, index) => url !== urls[index]);
+        return isDifferent ? urls : prevItems;
+      });
+
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching content:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  // Initial Fetch
   useEffect(() => {
-    fetchContent();
-  }, []);
+    if (kioskId) fetchContent();
+  }, [kioskId]);
 
-  // --- 2. SLIDER LOGIC ---
+  // --- 3. AUTO-REFRESH (POLLING) ---
+  useEffect(() => {
+    if (!kioskId) return;
+    const refreshInterval = setInterval(() => {
+      fetchContent(true); // Silent update
+    }, 60000); // 60000 Seconds/ 1 minute
+    return () => clearInterval(refreshInterval);
+  }, [kioskId]);
+
+  // --- 4. SLIDER LOGIC ---
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1));
+    setCurrentIndex((prev) => {
+      if (prev >= mediaItems.length - 1) return 0;
+      return prev + 1;
+    });
   };
 
   useEffect(() => {
     if (mediaItems.length === 0) return;
 
+    // Safety check if playlist size changed
+    if (currentIndex >= mediaItems.length) {
+      setCurrentIndex(0);
+      return;
+    }
+
     const currentUrl = mediaItems[currentIndex];
     
-    // IMAGE LOGIC
     if (!isVideo(currentUrl)) {
       const timer = setTimeout(() => nextSlide(), 5000); 
       return () => clearTimeout(timer);
     }
 
-    // VIDEO LOGIC
     if (isVideo(currentUrl)) {
       const currentVideo = videoRefs.current[currentIndex];
       if (currentVideo) {
         currentVideo.currentTime = 0;
         currentVideo.muted = isMuted; 
-        
         const playPromise = currentVideo.play();
         if (playPromise !== undefined) {
-          playPromise.catch(error => console.log("Autoplay waiting for interaction"));
+          playPromise.catch(error => console.log("Autoplay waiting"));
         }
       }
     }
   }, [currentIndex, mediaItems, isMuted]);
 
-  // --- 3. HELPER: Listen for Fullscreen Changes ---
-  // This ensures the state is correct even if user presses "Esc" or swipes back
+  // --- HELPER FUNCTIONS ---
   useEffect(() => {
-    const handleFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFsChange);
     return () => document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
@@ -109,27 +143,26 @@ function App() {
     if (currentVideo) currentVideo.muted = !isMuted;
   };
 
-  const toggleFullscreen = () => {
+  const toggleFullscreenAndUi = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch((err) => {
-        console.error(`Error enabling fullscreen: ${err.message}`);
-      });
-    } else {
-      if (document.exitFullscreen) document.exitFullscreen();
+      document.documentElement.requestFullscreen().catch((e) => console.log(e));
     }
+    setIsUiVisible(false);
   };
 
-  // --- 4. UPLOAD LOGIC ---
+  const showUi = () => setIsUiVisible(true);
+
+  // --- 5. UPLOAD LOGIC ---
   const showToast = (msg) => { setNotification(msg); setTimeout(() => setNotification(""), 3000); };
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const storageRef = ref(storage, `kiosk-one/${file.name}`);
+    const storageRef = ref(storage, `images/${kioskId}/${file.name}`);
     try {
-      showToast("Uploading...");
+      showToast(`Uploading to ${kioskId}...`);
       await uploadBytes(storageRef, file);
-      showToast("Success! Refreshing...");
-      fetchContent();
+      showToast("Success! Playlist will update shortly.");
+      fetchContent(true); 
     } catch (err) { showToast("Error uploading."); }
   };
 
@@ -137,19 +170,17 @@ function App() {
     <div className="kiosk-container">
       {notification && <div className="notification-toast">{notification}</div>}
 
-      {/* ONLY SHOW ADMIN CONTROLS IF NOT FULLSCREEN 
-         (This hides the whole box when you enter play mode)
-      */}
-      {!isFullscreen && (
+      {isUiVisible && (
         <div className="admin-controls">
-          <h3>Admin Controls</h3>
+          <div className="admin-header">
+            <h3>Admin: {kioskId}</h3>
+            <button className="close-btn" onClick={() => setIsUiVisible(false)}>✕</button>
+          </div>
           
-          {/* FILE UPLOAD */}
           <div className="control-row">
             <input type="file" onChange={handleUpload} accept="image/*,video/*" />
           </div>
 
-          {/* SOUND TOGGLE BUTTON */}
           <div className="control-row">
             <button 
               className={`sound-btn ${isMuted ? "muted" : "unmuted"}`}
@@ -159,26 +190,31 @@ function App() {
             </button>
           </div>
 
-          {/* FULLSCREEN BUTTON */}
           <div className="control-row">
             <button 
               className={`sound-btn ${isFullscreen ? "muted" : "unmuted"}`}
               style={{ marginTop: "10px" }}
-              onClick={toggleFullscreen}
+              onClick={toggleFullscreenAndUi}
             >
-              {/* Note: This text technically won't be seen often because the box hides when true,
-                  but it is good logic to have if you change your mind later. */}
-              {isFullscreen ? "⛶ Exit Fullscreen" : "⛶ Enter Fullscreen"}
+              ⛶ Fullscreen & Hide Menu
             </button>
           </div>
-          
-          <p style={{fontSize: "0.8rem", marginTop: "10px", opacity: 0.8}}>
-            * Controls hide in fullscreen. Swipe Back to exit.
+          <p style={{fontSize: "0.7rem", marginTop: "5px", opacity: 0.8}}>
+            Auto-refresh active (15s)
           </p>
         </div>
       )}
 
-      {mediaItems.length === 0 && !loading && <div className="empty-state">No content found.</div>}
+      {!isUiVisible && (
+        <button className="reopen-btn" onClick={showUi}>⚙️</button>
+      )}
+
+      {mediaItems.length === 0 && !loading && (
+        <div className="empty-state">
+          No content in "{kioskId}".<br/>
+          Use the menu to upload.
+        </div>
+      )}
 
       {mediaItems.map((url, index) => {
         const isActive = index === currentIndex;

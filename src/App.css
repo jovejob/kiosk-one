@@ -1,34 +1,32 @@
-/* Reset defaults to ensure full screen */
+/* Reset defaults */
 body, html {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* Hide scrollbars */
-  background-color: #000; /* Black background looks best on Kiosks */
+  overflow: hidden;
+  background-color: #000;
 }
 
-/* The Main Container */
 .kiosk-container {
   position: relative;
   width: 100vw;
   height: 100vh;
 }
 
-/* --- THE SLIDES --- */
+/* --- SLIDES --- */
 .slide {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  opacity: 0; /* Hidden by default */
-  transition: opacity 1s ease-in-out; /* Smooth fade effect */
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
   z-index: 1;
-  background-color: black; /* Prevents white flashes between videos */
+  background-color: black;
 }
 
-/* The Active Slide (Visible) */
 .slide.active {
   opacity: 1;
   z-index: 2;
@@ -37,38 +35,11 @@ body, html {
 .slide img, .slide video {
   width: 100%;
   height: 100%;
-  /* 'cover' = Fills screen (might crop edges if aspect ratio doesn't match).
-     'contain' = Shows whole image (might show black bars).
-     For Kiosks, 'cover' usually looks much more professional.
-  */
-  object-fit: cover; 
+  object-fit: cover;
   display: block;
 }
 
-.notification-toast {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%); /* Centers it perfectly */
-  background-color: #a37e2c; /* Gold */
-  color: white;
-  padding: 15px 30px;
-  border-radius: 50px;
-  font-family: sans-serif;
-  font-weight: bold;
-  font-size: 1.2rem;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-  z-index: 2000; /* Above everything */
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translate(-50%, -20px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
-}
-
-/* --- ADMIN UPLOAD SECTION --- */
-/* This sits on TOP of the slider so you can use it. */
+/* --- ADMIN CONTROLS --- */
 .admin-controls {
   position: absolute;
   top: 20px;
@@ -77,11 +48,45 @@ body, html {
   color: white;
   padding: 15px;
   border-radius: 8px;
-  z-index: 1000; /* Highest layer */
+  z-index: 1000;
   box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 250px;
 }
 
-/* --- SOUND BUTTON --- */
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.admin-controls h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+}
+
+input[type="file"] {
+  font-size: 0.9rem;
+}
+
+/* --- BUTTONS --- */
 .sound-btn {
   width: 100%;
   padding: 10px;
@@ -92,16 +97,40 @@ body, html {
   font-size: 1rem;
   transition: background 0.3s;
   margin-top: 5px;
+  color: white;
 }
 
 .sound-btn.muted {
   background-color: #a37e2c; /* Gold */
-  color: white;
 }
 
 .sound-btn.unmuted {
-  background-color: #9eca9e; /* Green */
-  color: white;
+  background-color: #9eca9e; /* Light Green */
+}
+
+/* --- REOPEN GEAR BUTTON --- */
+.reopen-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.2); /* Semi-transparent */
+  border: none;
+  font-size: 5rem;
+  cursor: pointer;
+  z-index: 3000;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s;
+  opacity: 0; /* Very faint/none by default */
+}
+
+.reopen-btn:hover {
+  opacity: 1; /* Visible on hover/touch */
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .empty-state {
@@ -118,12 +147,13 @@ body, html {
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: #006039;/* Green */
+  background-color: #006039;
   color: white;
   padding: 12px 25px;
   border-radius: 50px;
   font-family: sans-serif;
   font-weight: bold;
+  font-size: 1.2rem;
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   z-index: 2000;
   animation: fadeIn 0.5s ease-in-out;
@@ -132,12 +162,4 @@ body, html {
 @keyframes fadeIn {
   from { opacity: 0; transform: translate(-50%, -20px); }
   to { opacity: 1; transform: translate(-50%, 0); }
-}
-
-.empty-state {
-  color: white;
-  text-align: center;
-  margin-top: 50vh;
-  font-family: sans-serif;
-  font-size: 2rem;
 }
