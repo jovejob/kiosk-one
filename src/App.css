@@ -6,6 +6,7 @@ body, html {
   height: 100%;
   overflow: hidden;
   background-color: #000;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .kiosk-container {
@@ -39,73 +40,189 @@ body, html {
   display: block;
 }
 
-/* --- ADMIN CONTROLS --- */
-.admin-controls {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  background: #006039;
-  color: white;
-  padding: 15px;
-  border-radius: 8px;
-  z-index: 1000;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+/* --- CENTERED ADMIN OVERLAY --- */
+.admin-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.85); /* Dark background */
+  z-index: 2000; /* High z-index to sit on top */
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 250px;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
 }
 
+.admin-box {
+  background-color: #1e1e1e; /* Dark Card */
+  color: white;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  border: 1px solid #333;
+}
+
+/* --- HEADER --- */
 .admin-header {
+  padding: 20px;
+  border-bottom: 1px solid #333;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 5px;
 }
 
-.admin-controls h3 {
+.admin-header h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.2rem;
+  color: #fff;
 }
 
 .close-btn {
   background: none;
-  border: none;
-  color: white;
-  font-size: 1.2rem;
+  border: 1px solid #555;
+  color: #ccc;
+  padding: 5px 15px;
+  border-radius: 20px;
   cursor: pointer;
-  padding: 0 5px;
-}
-
-.control-row {
-  display: flex;
-  align-items: center;
-}
-
-input[type="file"] {
   font-size: 0.9rem;
 }
 
-/* --- BUTTONS --- */
-.sound-btn {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 1rem;
-  transition: background 0.3s;
-  margin-top: 5px;
+.close-btn:hover {
+  background: #333;
   color: white;
 }
 
-.sound-btn.muted {
-  background-color: #a37e2c; /* Gold */
+/* --- ACTIONS SECTION --- */
+.admin-actions {
+  padding: 20px;
+  background-color: #252525;
 }
 
-.sound-btn.unmuted {
-  background-color: #9eca9e; /* Light Green */
+.upload-wrapper {
+  margin-bottom: 15px;
+}
+
+.custom-file-upload {
+  display: block;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.custom-file-upload:hover {
+  background-color: #0056b3;
+}
+
+input[type="file"] {
+  display: none; /* Hide default ugly input */
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+  background-color: #444;
+  color: white;
+}
+
+.action-btn.unmuted { background-color: #28a745; }
+.action-btn.muted { background-color: #dc3545; }
+
+/* --- FILE LIST --- */
+.file-list-container {
+  padding: 20px;
+  flex-grow: 1;
+  overflow-y: auto; /* Scrollable list */
+}
+
+.file-list-container h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #888;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.file-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  background-color: #2a2a2a;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.file-preview {
+  width: 60px;
+  height: 45px;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-right: 15px;
+  flex-shrink: 0;
+}
+
+.file-preview img, .file-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-name {
+  flex-grow: 1;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 10px;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #ff4d4d;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+
+.delete-btn:hover {
+  background-color: rgba(255, 77, 77, 0.1);
+}
+
+.admin-footer {
+  padding: 10px 20px;
+  border-top: 1px solid #333;
+  text-align: right;
+  color: #555;
 }
 
 /* --- REOPEN GEAR BUTTON --- */
@@ -113,9 +230,9 @@ input[type="file"] {
   position: absolute;
   bottom: 20px;
   right: 20px;
-  background: rgba(255, 255, 255, 0.2); /* Semi-transparent */
+  background: rgba(255, 255, 255, 0.1); 
   border: none;
-  font-size: 5rem;
+  font-size: 2rem;
   cursor: pointer;
   z-index: 3000;
   border-radius: 50%;
@@ -125,20 +242,12 @@ input[type="file"] {
   align-items: center;
   justify-content: center;
   transition: opacity 0.3s;
-  opacity: 0; /* Very faint/none by default */
+  opacity: 0.2;
 }
 
 .reopen-btn:hover {
-  opacity: 1; /* Visible on hover/touch */
+  opacity: 1;
   background: rgba(255, 255, 255, 0.8);
-}
-
-.empty-state {
-  color: white;
-  text-align: center;
-  margin-top: 50vh;
-  font-family: sans-serif;
-  font-size: 2rem;
 }
 
 /* --- TOAST --- */
@@ -147,19 +256,19 @@ input[type="file"] {
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: #006039;
+  background-color: #007bff;
   color: white;
   padding: 12px 25px;
   border-radius: 50px;
-  font-family: sans-serif;
   font-weight: bold;
-  font-size: 1.2rem;
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-  z-index: 2000;
-  animation: fadeIn 0.5s ease-in-out;
+  z-index: 3000;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translate(-50%, -20px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+.empty-state {
+  color: white;
+  text-align: center;
+  margin-top: 50vh;
+  font-family: sans-serif;
+  font-size: 2rem;
 }

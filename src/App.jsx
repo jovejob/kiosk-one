@@ -8,7 +8,9 @@ import {
   ref, 
   uploadBytes, 
   listAll, 
-  getDownloadURL 
+  getDownloadURL,
+  deleteObject,
+  getBytes 
 } from "firebase/storage";
 
 // --- CONFIG ---
@@ -21,9 +23,11 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_APP_ID
 };
 
-
 const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
+
+// CURRENT APP VERSION
+const APP_VERSION = "1.1"; 
 
 const isVideo = (url) => url.match(/\.(mp4|webm|ogg|mov)/i);
 
@@ -37,7 +41,6 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isUiVisible, setIsUiVisible] = useState(true);
   
-  // Store the current Kiosk ID (folder name)
   const [kioskId, setKioskId] = useState(null); 
 
   const videoRefs = useRef([]);
@@ -53,7 +56,6 @@ function App() {
   const fetchContent = async (isBackgroundRefresh = false) => {
     if (!kioskId) return;
 
-    // Only show loading spinner on the very first load
     if(!isBackgroundRefresh && mediaItems.length === 0) setLoading(true);
     
     const folderPath = `images/${kioskId}/`;
@@ -61,15 +63,22 @@ function App() {
 
     try {
       const response = await listAll(listRef);
-      const urls = await Promise.all(
-        response.items.map((item) => getDownloadURL(item))
+      
+      const newItems = await Promise.all(
+        response.items.map(async (item) => {
+          const url = await getDownloadURL(item);
+          return {
+            url: url,
+            fullPath: item.fullPath, 
+            name: item.name          
+          };
+        })
       );
       
-      // Only update state if content actually changed
       setMediaItems(prevItems => {
-        if (prevItems.length !== urls.length) return urls;
-        const isDifferent = prevItems.some((url, index) => url !== urls[index]);
-        return isDifferent ? urls : prevItems;
+        if (prevItems.length !== newItems.length) return newItems;
+        const isDifferent = prevItems.some((item, index) => item.url !== newItems[index].url);
+        return isDifferent ? newItems : prevItems;
       });
 
     } catch (error) {
@@ -79,18 +88,36 @@ function App() {
     }
   };
 
-  // Initial Fetch
   useEffect(() => {
     if (kioskId) fetchContent();
   }, [kioskId]);
 
-  // --- 3. AUTO-REFRESH (POLLING) ---
+  // --- 3. AUTO-REFRESH & VERSION CHECK ---
   useEffect(() => {
     if (!kioskId) return;
-    const refreshInterval = setInterval(() => {
-      fetchContent(true); // Silent update
-    }, 60000); // 60000 Seconds/ 1 minute
-    return () => clearInterval(refreshInterval);
+
+    const checkVersion = async () => {
+      const versionRef = ref(storage, "images/common/version.json");
+      try {
+        const bytes = await getBytes(versionRef);
+        const text = new TextDecoder().decode(bytes);
+        const remoteData = JSON.parse(text);
+        
+        if (remoteData.version !== APP_VERSION) {
+          console.log("New version detected! Reloading...");
+          window.location.reload(true);
+        }
+      } catch (err) {
+        // Ignore errors
+      }
+    };
+
+    const interval = setInterval(() => {
+      fetchContent(true); 
+      checkVersion();     
+    }, 120000); // 2 Minutes
+
+    return () => clearInterval(interval);
   }, [kioskId]);
 
   // --- 4. SLIDER LOGIC ---
@@ -104,20 +131,19 @@ function App() {
   useEffect(() => {
     if (mediaItems.length === 0) return;
 
-    // Safety check if playlist size changed
     if (currentIndex >= mediaItems.length) {
       setCurrentIndex(0);
       return;
     }
 
-    const currentUrl = mediaItems[currentIndex];
+    const currentItem = mediaItems[currentIndex];
     
-    if (!isVideo(currentUrl)) {
+    if (!isVideo(currentItem.url)) {
       const timer = setTimeout(() => nextSlide(), 5000); 
       return () => clearTimeout(timer);
     }
 
-    if (isVideo(currentUrl)) {
+    if (isVideo(currentItem.url)) {
       const currentVideo = videoRefs.current[currentIndex];
       if (currentVideo) {
         currentVideo.currentTime = 0;
@@ -152,16 +178,29 @@ function App() {
 
   const showUi = () => setIsUiVisible(true);
 
-  // --- 5. UPLOAD LOGIC ---
   const showToast = (msg) => { setNotification(msg); setTimeout(() => setNotification(""), 3000); };
+
+  const handleDelete = async (fullPath) => {
+    if (!window.confirm("Delete this file?")) return;
+    const fileRef = ref(storage, fullPath);
+    try {
+      showToast("Deleting...");
+      await deleteObject(fileRef);
+      showToast("Deleted!");
+      fetchContent(true); 
+    } catch (error) {
+      showToast("Error deleting.");
+    }
+  };
+
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const storageRef = ref(storage, `images/${kioskId}/${file.name}`);
     try {
-      showToast(`Uploading to ${kioskId}...`);
+      showToast(`Uploading...`);
       await uploadBytes(storageRef, file);
-      showToast("Success! Playlist will update shortly.");
+      showToast("Success!");
       fetchContent(true); 
     } catch (err) { showToast("Error uploading."); }
   };
@@ -170,38 +209,75 @@ function App() {
     <div className="kiosk-container">
       {notification && <div className="notification-toast">{notification}</div>}
 
+      {/* --- CENTERED ADMIN OVERLAY --- */}
       {isUiVisible && (
-        <div className="admin-controls">
-          <div className="admin-header">
-            <h3>Admin: {kioskId}</h3>
-            <button className="close-btn" onClick={() => setIsUiVisible(false)}>✕</button>
-          </div>
-          
-          <div className="control-row">
-            <input type="file" onChange={handleUpload} accept="image/*,video/*" />
-          </div>
+        <div className="admin-overlay">
+          <div className="admin-box">
+            
+            <div className="admin-header">
+              <h3>Management: {kioskId}</h3>
+              <button className="close-btn" onClick={() => setIsUiVisible(false)}>Close ✕</button>
+            </div>
+            
+            <div className="admin-actions">
+              <div className="upload-wrapper">
+                 <label className="custom-file-upload">
+                    Upload New Media
+                    <input type="file" onChange={handleUpload} accept="image/*,video/*" />
+                 </label>
+              </div>
 
-          <div className="control-row">
-            <button 
-              className={`sound-btn ${isMuted ? "muted" : "unmuted"}`}
-              onClick={toggleSound}
-            >
-              {isMuted ? "🔇 Sound OFF" : "🔊 Sound ON"}
-            </button>
-          </div>
+              <div className="button-group">
+                <button 
+                  className={`action-btn ${isMuted ? "muted" : "unmuted"}`}
+                  onClick={toggleSound}
+                >
+                  {isMuted ? "🔇 Unmute" : "🔊 Mute"}
+                </button>
 
-          <div className="control-row">
-            <button 
-              className={`sound-btn ${isFullscreen ? "muted" : "unmuted"}`}
-              style={{ marginTop: "10px" }}
-              onClick={toggleFullscreenAndUi}
-            >
-              ⛶ Fullscreen & Hide Menu
-            </button>
+                <button 
+                  className="action-btn" 
+                  onClick={toggleFullscreenAndUi}
+                >
+                  ⛶ Fullscreen & Hide
+                </button>
+              </div>
+            </div>
+
+            <div className="file-list-container">
+              <h4>Current Playlist ({mediaItems.length})</h4>
+              <div className="file-grid">
+                {mediaItems.map((item) => (
+                  <div key={item.fullPath} className="file-item">
+                    
+                    {/* THUMBNAIL */}
+                    <div className="file-preview">
+                      {isVideo(item.url) ? (
+                         <video src={item.url} muted />
+                      ) : (
+                         <img src={item.url} alt="preview" />
+                      )}
+                    </div>
+
+                    <span className="file-name">{item.name}</span>
+                    
+                    <button 
+                      className="delete-btn" 
+                      onClick={() => handleDelete(item.fullPath)}
+                      title="Delete File"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="admin-footer">
+              <small>Ver: {APP_VERSION} | Auto-refresh: 2m</small>
+            </div>
+
           </div>
-          <p style={{fontSize: "0.7rem", marginTop: "5px", opacity: 0.8}}>
-            Auto-refresh active (15s)
-          </p>
         </div>
       )}
 
@@ -216,23 +292,23 @@ function App() {
         </div>
       )}
 
-      {mediaItems.map((url, index) => {
+      {mediaItems.map((item, index) => {
         const isActive = index === currentIndex;
-        const _isVideo = isVideo(url);
+        const _isVideo = isVideo(item.url);
 
         return (
           <div key={index} className={`slide ${isActive ? "active" : ""}`}>
             {_isVideo ? (
               <video
                 ref={el => videoRefs.current[index] = el}
-                src={url}
+                src={item.url}
                 muted={isMuted} 
                 playsInline
                 onEnded={nextSlide} 
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
-              <img src={url} alt={`Slide ${index}`} />
+              <img src={item.url} alt={`Slide ${index}`} />
             )}
           </div>
         );
