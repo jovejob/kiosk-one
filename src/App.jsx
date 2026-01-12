@@ -27,7 +27,7 @@ const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
 
 // CURRENT APP VERSION
-const APP_VERSION = "1.1"; 
+const APP_VERSION = "1.2"; 
 
 const isVideo = (url) => url.match(/\.(mp4|webm|ogg|mov)/i);
 
