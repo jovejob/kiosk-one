@@ -39,7 +39,7 @@ function App() {
   
   const [isMuted, setIsMuted] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isUiVisible, setIsUiVisible] = useState(true);
+  const [isUiVisible, setIsUiVisible] = useState(false);
   
   const [kioskId, setKioskId] = useState(null); 
 
