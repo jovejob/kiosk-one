@@ -242,7 +242,7 @@ input[type="file"] {
   align-items: center;
   justify-content: center;
   transition: opacity 0.3s;
-  opacity: 0.2;
+  opacity: 0;
 }
 
 .reopen-btn:hover {
