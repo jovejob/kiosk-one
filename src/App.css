@@ -268,7 +268,7 @@ input[type="file"] {
 .empty-state {
   color: white;
   text-align: center;
-  margin-top: 50vh;
+  /* margin-top: 50vh; */
   font-family: sans-serif;
   font-size: 2rem;
 }

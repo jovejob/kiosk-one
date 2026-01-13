@@ -27,7 +27,7 @@ const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
 
 // CURRENT APP VERSION
-const APP_VERSION = "1.2"; 
+const APP_VERSION = "1.4"; 
 
 const isVideo = (url) => url.match(/\.(mp4|webm|ogg|mov)/i);
 
@@ -97,20 +97,49 @@ function App() {
     if (!kioskId) return;
 
     const checkVersion = async () => {
+      // 1. Get the Reference
       const versionRef = ref(storage, "images/common/version.json");
+      
       try {
-        const bytes = await getBytes(versionRef);
-        const text = new TextDecoder().decode(bytes);
-        const remoteData = JSON.parse(text);
+        // 2. Get the URL
+        const url = await getDownloadURL(versionRef);
         
+        // 3. Fetch with TIMESTAMP to bypass ALL caching (Browser & Firebase)
+        const response = await fetch(url + "?t=" + Date.now());
+        const remoteData = await response.json();
+        
+        // 4. Compare
         if (remoteData.version !== APP_VERSION) {
-          console.log("New version detected! Reloading...");
-          window.location.reload(true);
+          console.log(`New version ${remoteData.version} detected! Reloading...`);
+          // Show user feedback before reloading
+          setNotification(`Update Found! Reloading to v${remoteData.version}...`);
+          
+          // Wait 2 seconds then reload
+          setTimeout(() => {
+             // Force reload from server, ignoring cache
+             window.location.reload(true);
+          }, 2000);
         }
       } catch (err) {
-        // Ignore errors
+        // Now we log the error so you can debug it locally if needed
+        console.error("Version check failed:", err);
       }
     };
+    // const checkVersion = async () => {
+    //   const versionRef = ref(storage, "images/common/version.json");
+    //   try {
+    //     const bytes = await getBytes(versionRef);
+    //     const text = new TextDecoder().decode(bytes);
+    //     const remoteData = JSON.parse(text);
+        
+    //     if (remoteData.version !== APP_VERSION) {
+    //       console.log("New version detected! Reloading...");
+    //       window.location.reload(true);
+    //     }
+    //   } catch (err) {
+    //     // Ignore errors
+    //   }
+    // };
 
     const interval = setInterval(() => {
       fetchContent(true); 
